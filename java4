@@ -1,0 +1,269 @@
+
+5      异常和日志
+5.1      异常
+原则13       只针对真正异常的情况才使用exception机制
+
+说明：不要用exception机制来做流程控制。exception机制只应该用于处理罕见的、意料之外的、导致正常流程无法继续执行的行为，而不是取代正常的业务逻辑判断。
+
+示例：
+
+         不好：下列代码企图利用异常来模拟正常的循环操作，是不可取的
+
+         try
+{
+int i = 0;
+while(true)
+{
+range[i++].climb();
+}
+}
+catch(ArrayIndexOutOfBoundsException e)
+{
+...
+}
+
+ 
+
+规则29       在抛出异常的细节信息中，应包含能捕获失败的信息
+
+说明：在抛出异常的时候，应该同时提供足够信息，以便对分析“异常是如何产生的”有帮助，比如“对该异常有贡献”的参数和变量的值。这样能方便程序员知道应该去查找哪些错误，可以极大地加速诊断过程。但是需要注意符合公司安全红线和法律法规的要求，不要包含敏感信息或者个人信息。
+
+  
+
+规则30       对可恢复的情况使用受检异常（checked exception），对编程错误使用运行时异常（runtime exception）
+
+说明：Java存在三种可抛出结构（throwable）：受检异常（checked exception）、运行时异常（runtime exception）和错误（error）。使用原则是：
+
+1、如果期望调用者能够恢复，则应该使用受检异常。抛出受检异常，可以强迫调用者在一个catch子句中处理该异常，或者继续向外传播。
+
+2、运行时异常是指难以恢复或者不可恢复的程序错误。大多数运行时异常都是表明前提违例（precondition violation指API的调用方没有遵循调用约定）。
+
+3、错误（error）被JVM保留用于指示资源不足、约束失败或者其他程序无法继续执行的情况。最好不要实现新的Error子类，所有抛出的未受检异常都应该是RuntimeException的子类。
+
+ 
+
+规则31       不要忽略异常
+
+说明：通过一个空的catch块可以很方便的忽略异常，如下所示：
+
+	try
+{
+...
+} catch (SomeException e)
+{
+}
+
+空的catch块会使异常达不到应有的目的。忽略异常就如同忽略火警信号一样，若把火警信号器关掉了，当真正火灾发生时，就没有人能看到火警信号了。至少，在一个空catch块中也应该添加注释，解释为什么可以忽略这个异常，对于那些不应该频繁发生的异常，还应该将异常信息记录到日志中。例如关闭FileInputStream时，可以忽略异常，因为此时并没有改变文件状态，不必执行任何恢复动作，但要将异常信息记录到日志中，当异常频繁发生时就可以调查导致异常的原因。
+
+ 
+
+规则32       方法注释和文档中要包含所抛出异常的说明
+
+说明：要正确使用方法，必须对方法所抛出异常有所了解。因此，为保证方法的调用者清楚了解方法所抛出的异常，应该在方法的注释和文档中包含所抛出异常的说明。
+
+ 
+
+规则33       方法抛出的异常，应该与本身的抽象层次相对应
+
+说明：当方法把一个异常传给调用方时，请确保异常的抽象层次与方法的抽象层次是一致的。
+
+示例：
+
+不好：getTaxId把更低层的IOException返回给调用方，暴露了实现细节，而且使调用方代码与底层耦合起来。
+
+public class Employee
+{
+...
+public TaxId getTaxId() throws IOException
+{
+...
+}
+...
+}
+
+        
+
+推荐：抛出EmployeeDataNotAvailable异常，抽象层次与方法一致
+
+public class Employee
+{
+...
+public TaxId getTaxId() throws EmployeeDataNotAvailable
+{
+...
+}
+...
+}
+
+ 
+
+建议14       对第三方API抛出大量各类异常进行封装
+
+说明：为了避免与第三方API产生太过紧密的耦合，避免因第三方修改了异常之后而导致自身代码的变更，需对第三方抛出的异常进行封装。
+
+ 
+
+ 
+
+建议15       使用异常来做错误处理，而非错误码
+
+说明：使用判断返回错误码来进行错误处理，易导致正常业务流和异常处理流交织在一起，可读性比较差。而且返回错误码，一般要求调用者立刻处理错误，易导致更深层次的嵌套。如下所示：
+
+示例：
+
+         不好：使用错误码
+
+	if (deletePage(page) == E_OK)
+{
+if (registry.deleteReference(page.name) == E_OK)
+{
+if (configKeys.deleteKey(page.name.makeKey()) == E_OK)
+{
+logger.log("page deleted");
+} else
+{
+logger.log("configKey not deleted");
+}
+} else
+{
+logger.log("deleteReference from registry failed");
+}
+} else
+{
+logger.log("delete failed");
+return false;
+}
+
+ 
+
+推荐：使用异常
+
+	try
+{
+deletePage(page);
+registry.deleteReference(page.name);
+configKeys.deleteKey(page.name.makeKey());
+logger.log("page deleted");
+}
+catch (XXXException e)
+{
+logger.log(e);
+...
+}
+
+ 
+
+规则34       在finally块中不要使用return、break或continue使finally块非正常结束
+
+说明：在finally中使用return、break或continue会使finally块非正常结束，造成的影响是，即使在try块或catch中抛出了异常，也会因为finally非正常结束而导致无法抛出。finally块非正常结束会有编译告警。
+
+如下所示：
+
+         下列代码的main方法中不会捕获到异常，输出是aa:0
+
+	public static void main(String[] args)
+{
+try
+{
+System.out.println("aa:" + aa());
+}
+catch (Exception e)
+{
+e.printStackTrace();
+}
+}
+public static int aa() throws Exception
+{
+int a = 1;
+for (int i = 1; i < 2; i++)
+{
+try
+{
+throw new Exception("bb");
+}
+catch (Exception ex)
+{
+throw ex;
+} finally
+{
+continue;
+}
+}
+return 0;
+}
+
+ 
+
+规则35       不要直接捕获受检异常的基类Exception
+
+说明：捕获受检异常的目的是为了进行恢复，而如果不加区分的捕获所有受检异常，则无法进行对应异常的恢复处理。因此，应该区分并捕获具体的异常。
+
+ 
+
+建议16       一个方法不应抛出太多类型的异常
+
+说明：方法抛出过多的异常，会增加客户端异常处理的工作，同时也表明方法承担了过多的职责。
+
+ 
+
+建议17       充分利用断言
+
+说明：在Java 1.4中增加了assert关键字，用来测试指定的条件是否满足，当断言被违反时将抛出AssertionError。断言是用来检查代码的bug，即正常执行时永不该发生的情况。契约式程序设计中，每个方法都有前条件和后条件，可采用断言来验证前置条件和后置条件是否满足。断言的执行是可配置的，在开发阶段，我们使用断言来充分发现程序bug，而在正式发布后，出于性能考虑可不将断言包含在release版本中。
+
+5.2      日志
+原则14       日志信息准确、繁简得当，满足快速定位的需要
+
+说明：日志的目的，就是当问题发生时，帮助程序员快速定位发生问题的原因，因此日志信息应满足以下要求， 首先是要提供准确的信息，其次是信息不要太多也不要太少，太多则无法在海量日志中定位出问题，太少则没有足够信息定位，要繁简得当刚好能满足快速定位的需要。
+
+ 
+
+规则36       日志的记录，不要使用 System.out 与 System.err 进行控制台打印，应该使用专用的日志工具(比如：slf4j+logback)进行处理
+
+说明：专用日志工具比控制台打印提供了更丰富的日志记录功能，且使用更加简单
+
+示例：
+
+不好：使用控制台打印
+
+start = System.currentTimeMillis();
+……………………//其他加载数据的代码
+System.out.println ("items loaded,use " + (System.currentTimeMillis() - start) + "ms.");
+
+推荐：采用日志工具（例如slf4j+logback）
+
+start = System.currentTimeMillis();
+……………………//其他加载数据的代码
+logger.info("items loaded,use {}ms." , (System.currentTimeMillis() - start));
+
+ 
+
+规则37       日志工具对象logger应声明为private static final
+
+说明：1、声明为private是出于安全性考虑，防止logger对象被其他类非法使用
+
+2、声明为static是为了防止重复new出logger对象，造成资源的浪费，同时防止logger被序列化，造成安全风险；（lib库设计除外）
+
+3、声明为final是因为在类的生命周期内无需变更logger;
+
+示例：
+
+	private static final Logger LOGGER = LoggerFacotry.getLogger(this.class);
+
+ 
+
+规则38       日志应分等级
+
+说明：如果日志不分等级，则定位问题时，无法快速有效屏蔽大量低级别信息，给快速定位带来难度。日志可分为以下级别：debug、info、warn、error、fatal。推荐与具体实现有关的日志记录debug级，一般的业务处理日志用info级，不影响业务进行的错误用warn级，而记录异常的日志应为error或fatal级。
+
+示例：
+
+catch (XXXException e)
+{
+LOGGER.error("#211#Error when insertNoCCNCMessage!e=" + e.toString(), e);
+}
+
+ 
+
+规则39       日志中不要记录敏感信息
+
+说明：根据安全编程规范的要求，日志中不应出现敏感信息，如用户的密码、银行卡号等。详见《Java语言编程规范 下卷 安全篇》
