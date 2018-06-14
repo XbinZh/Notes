@@ -1,0 +1,332 @@
+
+7      语言特性
+7.1      运算和表达式
+规则48       不要写复杂的表达式
+
+说明：复杂的表达式难以理解，会增加软件维护的成本和出错的几率。建议将难懂的语句封装到某个方法里，通过方法名来概括该语句的含义。
+
+示例：
+
+         不好
+
+if ((employee.flags & HOURLEY_FLAG)&&(employee.age > 65))
+{
+...
+}
+
+推荐if (employee.isEligibleForFullBenefits())
+{
+...
+}
+private boolean isEligibleForFullBenefits()
+{
+return (employee.flags & HOURLEY_FLAG) && (employee.age > RETIRE_AGE) ;
+}
+
+ 
+
+规则49       运算时应避免产生溢出
+
+说明：
+
+1、如下列两个int型变量a,b的运算   int c=a+b;//或c=a-b; 当结果为很大的正数(>2147483647)，或为很小的负数时(<-2147483648)，可能会导致溢出，则c不是正确的结果，建议使用long型保存结果。 如果是long型进行上述计算，则建议使用BigInteger。
+
+ 2、计算一年的毫秒
+
+错误示例：
+
+    int millisOfYear=1000*60*60*24*365; 或 long millisOfYear=1000*60*60*24*365;
+
+正确示例：
+
+long millisOfYear=1000L*60*60*24*365;
+
+3、 使用基于减法的比较器时，需要确认相减的结果不会超出类型的表示范围，如下，假设T.num为整型
+
+错误示例：
+
+new Comparator()
+{
+@Override
+public int compare(T o1, T o2)
+{
+return o1.num - o2.num ;
+}
+}
+
+正确示例：
+
+new Comparator()
+{
+@Override
+public int compare(T o1, T o2)
+{
+if (o1.num > o2.num)
+{
+return 1;
+}
+return o1.num < o2.num ? -1 : 0;
+}
+}
+
+ 
+
+建议20       采用括号明确运算的优先级
+
+说明：注意运算符的优先级。在普遍不易理解的复杂表达式中，使用括号说明优先级，以方便阅读和理解。即使代码优先级正确，也应该考虑到后续阅读或者修改这段代码的其他人员的方便，最好加上括号。
+
+例子：
+
+不建议：
+
+if (a == b  &&  c == d)
+
+推荐：
+
+if ((a == b)  && (c == d))
+
+7.2      控制语句
+规则50       采用for-each代替传统的for循环（v1.5+）
+
+说明：在Java 1.5之前，遍历一个集合的方法是：
+
+for (Iterator i = c.iterator(); i.hasNext();)
+{
+doSomething((Element)i.next());
+}
+
+遍历数组的做法是
+
+for (int i = 0; i < a.length; i++)
+{
+doSomething(a[i]);
+}
+
+由于需要手工获取数据和递增到下一个元素，在书写时更容易出错，尤其是多层循环嵌套的时候。在Java1.5中，引入了for-each循环，隐藏了获取数据和递增的操作，避免了混乱和出错的可能。使用for-each循环的例子：
+
+for (String item : list)
+{
+System.out.print(item);
+}
+
+ 
+
+规则51       在switch语句的每一个case、和default中都放置一条break语句
+
+说明：遗漏break，可能导致程序误进入下一个case分支，执行了预期之外的代码，导致异常。而且，不推荐做出有意不写break的设计。
+
+示例：
+
+         case ‘-‘ 遗漏break，导致计算结果与预期不一致
+
+switch (c)
+{
+case '+':
+result = add(a, b);
+break;
+case '-':
+result = minus(a, b); //遗漏break，导致计算结果与预期不一致
+case '*':
+result = multiply(a, b);
+break;
+case '/':
+result = devide(a, b);
+break;
+default:
+...
+}
+
+7.3      序列化
+原则15       尽量不要实现Serializable接口
+
+使用Java内置序列化功能的主要场景是为了在当前程序之外保存对象并在需要的时候重新获得对象。鉴于以下原因，建议除非必须使用的第三方接口要求必须实现Serializable接口否则请选用其它方式代替。
+
+1.      序列化不必要地对外公开了对象的物理实现
+
+2.      序列化容易使一个类对其最初的内部表示产生依赖
+
+3.      编写正确的反序列化代码有很大的挑战
+
+4.      序列化增大了安全风险
+
+5.      序列化增加了测试的难度
+
+综上，序列化耦合了对象的逻辑信息和物理实现，使得开发者在面对领域需求之外需要额外关注很多专有的细节知识。在可能的情况下，使用其它替代方案将会减少工作量、减少bug、降低出现安全漏洞的风险。
+
+ 
+
+规则52       序列化对象中的HashMap、HashSet或HashTable等集合不能包含对象自身的引用
+
+说明：如果一个被序列化的对象中，包含有HashMap、HashSet或HashTable集合，则这些集合中不允许保存当前被序列化对象的直接或间接引用。因为，这些集合类型在反序列化的时候，会调用到当前序列化对象的hashCode方法，而此时（序列化对象还未完全加载）计算出的hashCode有可能不正确，从而导致对象放置位置错误，破坏反序列化的实例。
+
+示例：
+
+class Super implements Serializable
+{
+final Set<Super> set = new HashSet<super>();
+}
+final class Sub extends Super
+{
+private int id;
+public Sub(int id)
+{
+this.id = id;
+set.add(this); // 集合中引用了当前对象
+}
+public void checkInvariant()
+{
+if (!set.contains(this))
+{
+throw new AssertionError("invariant violated");
+}
+}
+public int hashCode()
+{
+return id;
+}
+public boolean equals(Object o)
+{
+return (o instanceof Sub) && (id == ((Sub) o).id);
+}
+}
+
+这个例子中，将当前对象（Sub对象）放入了对象中的HashSet中，在反序列化set时，因为id属性还未完成初始化，导致hashCode的结果为0，从而导致Sub对象在set中的位置放置错误，对象被破坏。
+
+ 
+
+建议21       实现Serializable接口的可序列化类应该显式声明 serialVersionUID
+
+说明： 如果可序列化类未显式声明 serialVersionUID，则序列化运行时将基于该类的各个方面计算该类的默认 serialVersionUID 值，如“Java(TM) 对象序列化规范”中所述。不过，强烈建议所有可序列化类都显式声明 serialVersionUID 值，原因计算默认的 serialVersionUID 对类的详细信息具有较高的敏感性，根据编译器实现的不同可能千差万别，这样在反序列化过程中可能会导致意外的 InvalidClassException。因此，为保证 serialVersionUID 值跨不同 java 编译器实现的一致性，序列化类必须声明一个明确的 serialVersionUID 值。还强烈建议使用 private 修改器显式声明 serialVersionUID（如果可能），原因是这种声明仅应用于立即声明类 – serialVersionUID 字段作为继承成员没有用处。
+
+示例：
+
+public class BeanType implements Serializable
+{
+private static final long serialVersionUID = -2589766491699675794L;
+...
+}
+
+7.4      泛型
+规则53       在集合中使用泛型（v1.5+）
+
+说明：Java 1.5版本中增加了泛型，在没有泛型之前，从集合中读取到的每一个对象都必须进行转换。如果有人不小心插入类型错误的对象，在运行时的转换处理就会出错。有了泛型之后，可以告诉编译器每个集合中接受哪些对象类型。编译器自动地为你的插入进行转换，并在编译时告知是否插入了类型错误的对象。
+
+示例：
+
+         不好：错误的将Coin对象插入到samps集合中，直到从集合中获取coin时才收到错误提示
+
+         private final Collection stamps = ...;
+stamps.add(new Coin(...));
+
+       推荐：使用泛型，在编译时会提示类型错误
+
+         private final Collection<Stamp> stamps = ...;
+stamps.add(new Coin(...));
+
+还有个好处是，从集合中获取元素时，不再需要进行手工类型转换。如下所示：
+
+         for(Stamp s : stamps)
+{
+...
+}
+
+ 
+
+建议22       类的设计可优先考虑泛型（v1.5+）
+
+说明：使用泛型类型，比使用需要在客户端代码中进行转换的类型来得更加安全，也更加容易。
+
+示例：如下所示，一个设计为泛型的stack类，在使用时，无需对栈中元素进行类型转换。
+
+public static void main(String[] args)
+{
+Stack<String> stack = new Stack<string>();
+for (String arg : args)
+{
+stack.push(arg);
+}
+while (!stack.isEmpty())
+{
+System.out.println(stack.pop().toUpperCase());
+}
+}
+
+ 
+
+建议23       方法的设计可优先考虑泛型（v1.5+）
+
+说明：就如类可以从泛型中受益一般，方法也一样。静态工具方法尤其适合于泛型化。
+
+示例：如下所示，泛型方法就像泛型一样，使用起来比要求客户端转换输入参数并返回值的方法来得更加安全，也更加容易。
+
+public static <E> Set<e> union(Set<e> s1, Set<e> s2)
+{
+Set<e> result = new HashSet<e>(s1);
+result.addAll(s2);
+return result;
+}
+public static void main(String[] args)
+{
+Set<string> guys = new HashSet<string>(Arrays.asList("Tom", "Dick", "Harry"));
+Set<string> stooges = new HashSet<string>(Arrays.asList("Larry", "Moe", "Curly"));
+Set<string> aflCio = union(guys, stooges);
+System.out.println(aflCio);
+}
+
+ 
+
+建议24       优先使用泛型集合，而不是数组（v1.5+）
+
+说明：数组与泛型集合相比，有两个重要不同点。首先，数组是协变的(covariant)，即Sub是Super的子类型，则Sub[]也是Super[]的子类型。相反，泛型则是不可变的(invariant)，对于任意两个类型Type1和Type2，List<Type1>既不是List<Type2>的子类型，也不是其超类型。其次，数组是具体化的，因此数组在运行时才知道并检查它们的元素类型约束。
+
+示例：如下代码是合法的，但执行时会报错
+
+Object[] objectArray = new Long[1];
+objectArray[0] = "I don't fit in"; //Throws ArrayStoreException
+
+而如下代码则会在编译时报错
+
+List<Object> objectList = new ArrayList<long>(); //Incompatible types
+objectList.add("I don't fit in");
+
+ 
+
+7.5      其他语言特性
+规则54       新代码不要使用已标注为@deprecated的方法
+
+说明：标注为@deprecated的方法，是由于各种原因被JDK废弃的方法，为了保持兼容性而没有删除，新写的代码应避免使用这些方法，而应该使用JDK推荐的代替方法。
+
+ 
+
+建议25       使用JDK自带的API或广泛使用的开源库，不要自己写类似的功能。
+
+说明：JDK和开源库（例如Apache Commons,Google Guava等）已实现的功能，不要重复实现，避免造成浪费。
+
+ 
+
+建议26       升级到最新稳定版的Java 平台版本上，以便获取新特性带来的收益
+
+说明：较新的版本都包含许多让程序员更轻松的改进，你并不需要费力去学习怎样利用所有的新特性，有些新特性不需要你付出任何努力就可以给你带来实惠。
+
+ 
+
+建议27       充分利用编译器的告警选项
+
+在C/C++中一条被普遍了解的规则是将编译器告警级别调整至最高并保持告警清零。在Java中该动作通常由静态检查工具如findbugs等完成，并且现在一些IDE也增加了很多有价值的告警信息（例如eclipse中对null指针的分析），将尽可能多的告警选项打开并保持告警正确清零，也有助于代码质量的提高。需要注意的是告警选项缺省情况下未必保存在工程文件中，为了整个团队使用一致的告警选项，需要将之配置到工程中。
+
+ 
+
+建议28       使用字符串API时，应注意方法使用的是否是 “正则表达式”
+
+说明：正则表达式所引发的问题趋向于在运行时刻而不是在编译时刻暴露出来。如，String.replaceAll()方法第一个参数接受的是一个正则表达式，当匹配'.'符号时，需使用\\.进行转义。
+
+ 
+
+建议29       值类（value classes）的设计，可考虑实现Comparable接口，方便在集合中实现对象的搜索、排序、计算极值等
+
+说明：一旦类实现了Comparable接口，它就可以跟很多泛型算法以及依赖于该接口的集合实现进行协作。你付出很小的努力就可以获得非常强大的功能。事实上，Java平台类库中的所有值类（value classes）都实现了Comparable接口。如果你正在编写一个值类，它具有非常明显的内在排序关系，比如按字母顺序、按数值顺序或者按年代顺序，那你就应该坚决考虑实现这个接口。
+
+public interface Comparable<T>
+{
+int compareTo(T t);
+}
