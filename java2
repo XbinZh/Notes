@@ -1,0 +1,231 @@
+
+3      方法
+原则5           方法设计的第一原则是要短小
+
+说明：方法设计的第一原则，是短小，第二原则是还要短小。过长的方法，难以理解和维护。短方法易理解、易维护、易扩展、易测试。根据业界经验，方法的长度建议不超过50行。
+
+ 
+
+原则6           方法设计应遵循单一职责原则（SRP），一个方法仅完成一个功能
+
+说明：方法应该做一件事，做好这件事，只做这件事。有以下2种情况，违反单一职责：1、多段代码重复做同一件事情，那么在方法的划分上可能存在问题，应将重复部分提取为一个方法。2、一个方法完成了多种功能，应将其拆分为多个步骤的子功能。
+
+示例1：代码重复
+
+         public boolean save() throws IOException
+{
+if (outputFile == null)
+{
+return false;
+}
+FileWriter writer = new FileWriter(outputFile);
+movies.writeTo(writer);
+writer.close();
+return true;
+}
+public boolean saveAs() throws IOException
+{
+outputFile = view.getFile();
+if (outputFile == null)
+{
+return false;
+}
+FileWriter writer = new FileWriter(outputFile);
+movies.writeTo(writer);
+writer.close();
+return true;
+}
+
+ 
+
+示例2：下面的方法，不仅判断了用户名和密码，同时也设置了错误信息。可以将设置错误信息独立出来，根据本方法的返回值，在外面设置。
+
+public class UserManager
+{
+......
+public boolean checkpassword(String username, String password)
+{
+String foundPassword = find(username);
+if (foundPassword == null || !foundPassword.equals(password))
+{
+errorMessage = "Incorect username or password. Please try again.";
+return false;
+}
+errorMessage = "成功登录";
+return true;
+}
+}
+
+ 
+
+原则7           方法设计应遵循单一抽象层次原则（SLAP）
+
+说明：SLAP原则，是指让一个方法中所有的操作处于相同的抽象层。否则跳跃的代码的抽象层次破坏了代码的流畅性，如下所示。
+
+示例1：方法的操作不在同一个抽象层次，前后是抽象，中间是细节。
+
+void compute()
+{
+input();
+flags = 0x0080;
+output();
+}
+
+ 
+
+示例2：方法的操作在同一个抽象层次上
+
+void compute()
+{
+input();
+process();
+output();
+}
+
+ 
+
+原则8           方法设计应遵循命令与查询职责分离原则（CQRS）
+
+说明：方法应该修改某对象的状态，或者返回该对象的有关信息，但二者不可兼得。也就是说：如果我们要问一个问题，那么就不应该影响到它的答案。实际应用，要视具体情况而定，语义的清晰性和使用的简单性之间需要权衡。将Command和Query功能合并入一个方法，方便了客户的使用，但是，降低了清晰性，而且，可能不便于基于断言的程序设计并且需要一个变量来保存查询结果。
+
+示例：
+
+不好：方法设定指定属性的值，如果成功返回true，如果指定属性不存在，则返回false。这样导致了if语句理解存在歧义，可能会被理解为“username是否已被设置为michael”，而不是“看看username属性是否存在，如果存在则设置username为michael”
+
+         public boolean set(String attribute, String value);
+if (set(“username”,“michael"))
+{
+...
+}
+
+ 
+
+推荐：将命令和查询的职责分离为2个方法，先查询，再命令，就很清晰无歧义了。
+
+         if (attributeExist("username"))
+{
+setAttribute("username", "michael");
+...
+}
+
+ 
+
+规则22       不要把方法的入参当做工作变量/临时变量，除非特别需要
+
+说明：1、每个变量/参数都有自己独特的功用，让一个变量承担多个职责，变量名无法清晰表达其功能，会使程序难以理解；2、如果参数是传引用方式的，则方法内对参数的更改，会传递到方法外，造成意外的错误。如传引用时，不想方法内修改入参的，建议在参数前加final关键字；
+
+例外：当以传引入的方式传递参数，而且需要调用者能获取到方法内修改的结果时，可用入参当工作变量；
+
+示例：入参作为工作变量，程序难理解；     
+
+         int sample(int inputVal)
+{
+inputVal = inputVal * CurrentMuiniplier(inputVal);
+inputVal = inputVal * CurrentAdder(inputVal);
+return inputVal;
+}
+
+ 
+
+         推荐：采用局部变量，仅为示意，不代表实际中应该命名为workingVal，应该采用业务对应的名称。
+
+int sample (int inputVal)
+{
+int workingVal = inputVal;
+workingVal = workingVal * CurrentMuiniplier(workingVal);
+workingVal = workingVal * CurrentAdder(workingVal);
+...
+return workingVal;
+}
+
+ 
+
+规则23       使用类名调用静态方法，而不要使用实例或表达式来调用
+
+说明：明确的使用类名调用静态方法不容易造成混淆。使用实例调用静态方法时，调用的静态方法是声明类型的静态方法，与实例的实际类型无关，可能会导致与预期的结果不一致。当父类和子类有同名静态方法时，声明父类变量引用子类实例，调用该静态方法时调用的是父类的静态方法，而非子类的静态方法。
+
+示例：
+
+不好，两次调用的都是Dog.bark()方法，输出2行woof
+
+         class Dog
+{
+public static void bark()
+{
+System.out.println("woof");
+}
+}
+class Basenji extends Dog
+{
+public static void bark()
+{
+System.out.println("miao");
+}
+}
+public class Bark
+{
+public static void main(String  args[])
+{
+Dog woofer = new Dog();
+Dog nipper = new Basenji();
+woofer.bark();
+nipper.bark();
+}
+}
+
+        
+
+推荐，用类名来调用静态方法
+
+         class Dog
+{
+public static void bark()
+{
+System.out.print("woof");
+}
+}
+public class Bark
+{
+public static void main(String  args[])
+{
+Dog.bark();
+}
+}
+
+ 
+
+ 
+
+建议9           应明确规定对接口方法参数的合法性检查由调用者负责还是由接口方法本身负责
+
+说明：接口（public）方法调用时，应对参数做合法性检查，以保证程序的健壮性和正确性。对于预计不太可能发生的情况，使用断言检查，对于预计有可能发生情况，采用错误处理检查。
+
+应明确规定参数检查由调用者负责，还是由方法本身负责。同时应避免出现调用者和方法本身都检查的情况，造成过度防御，降低程序性能，并降低代码可读性增大维护成本。
+
+ 
+
+建议10       方法的参数个数不宜过多
+
+说明：如果参数超过7个，则维护的难度很大，建议减少参数个数。
+
+如果多个参数同时多次出现在多个方法中，说明这些参数紧密相关，可以将它们封装到一个类中。
+
+示例1：产品中的真实代码，参数过多
+
+private void insertHistory(String workfSeq, String workfType, String recSeq, int sortOrder, String orderSeq, String workfID, int region, String subSys, String orderID, String procSystem, String platType, String neID, String telnum, String imsi, int orderPri, java.util.Date createTime, String preStatus, int maxProcnum, int procNum, String rspCode, String rspDesc, int maxOvertime, String operType, String curStatus,  String neRetn, String neDesc, int procInterval, String transid, String oprid, String prepayType, String feedback_cmd)
+{
+...
+}
+
+示例2：把参数抽象为 某日志类SpWorkfLog
+
+private void insertHistory(SpWorkfLog spWorkfLog)
+{
+...
+}
+
+ 
+
+建议11       谨慎使用可变数量参数的方法
+
+说明：在JDK 1.5版本中初次引入Varargs（variable number of arguments）可变数量参数，可以接受指定类型的零个到多个参数。不建议使用varargs重写使用一个固定长度数组作为参数的方法，而应该在确实需要操作可变长度的值的序列时使用。
