@@ -1,0 +1,355 @@
+
+4      包、类和接口
+原则9           类和接口的设计应遵循面向对象SOLID设计原则
+
+1、单一职责原则（Single Responsibility Principle）
+
+说明：就一个类而言，应该仅有一个引起它变化的原因。如果你能够想到多于一个的动机去改变一个类，那么这个类就具有多于一个的职责。
+
+示例：
+
+         职责不单一的类，有多于一个的变化原因：“SuperDashboard类提供了对最后拥有焦点的组件的访问能力，我们还能通过它跟踪版本号和构建序列号”
+
+public class SuperDashboard extends JFrame implements MetaDataUser
+{
+public Component getLastFocusedComponent();
+public void setLastFocused(Component lastFocused);
+public int getMajorVersionNumber();
+public int getMinorVersionNumber();
+public int getBuildNumber();
+}
+
+ 
+
+         职责单一的类
+
+         public class Version
+{
+public int getMajorVersionNumber();
+public int getMinorVersionNumber();
+public int getBuildNumber();
+}
+
+ 
+
+2、开放封闭原则（Open Closed Principle）
+
+说明：开放封闭原则，指的是，新增功能时可以不修改原有的代码。也就是对扩展开放，对修改封闭。比如，可以通过实现一个已有的接口，或者继承一个已有的类，或者替换组合中的一个实现，来扩展新功能，而不修改原有的代码。
+
+ 
+
+3、里氏替换原则（Liskov Substitution Principle）
+
+说明：里氏替换原则是指，子类的实例应该能够替换任何其超类的实例。违反此原则的经典例子是，从长方形中派生一个正方形。因为，正方形要求长宽一起变化，而长方形无此限制，则在长方形出现的地方，无法用正方形来替换。假设rectangle.setWidth(4); rectangle.setLength(5); rectangle.getArea(); 应该等于20，而如果用正方形来替换长方形的话，结果为25。
+
+ 
+
+4、接口分离原则（Interface Segregation Principle）
+
+说明：使用多个专门的接口比使用单一的总接口要好。不要强迫用户使用他们不用的方法。一个类对另外一个类的依赖性应当是建立在最小的接口上的。一个接口代表一个角色，不应当将不同的角色都交给一个接口。没有关系的接口合并在一起，形成一个臃肿的大接口，这是对角色和接口的污染。
+
+ 
+
+5、依赖倒置原则（Dependency Inversion Principle）
+
+说明：面向过程的开发中，高层直接调用底层，造成高层依赖于底层的具体实现。依赖倒置原则认为，高层应该调用抽象的接口，底层则应实现这个接口，两者都依赖于接口。这样解除了高层和底层的耦合。
+
+ 
+
+原则10       类的设计应遵循迪米特法则
+
+说明：迪米特法则（Law of Demeter）又叫最少知识原则（Least Knowledge Principle），初衷在于降低类之间的耦合。
+
+类C的方法f只应该调用以下对象的方法：
+
+1.   类C本身（this对象）
+
+2.   类C实体变量持有的对象（成员）
+
+3.   在方法f中创建的对象
+
+4.   作为参数传递给f的对象
+
+ 
+
+示例：
+
+         迪米特法则说明
+
+         class C
+{
+private A a;
+int func();
+public void f(B b)
+{
+this.func();      //类C本身的方法
+a.setActive();    //类C成员对象的方法
+b.invert(),       //传入f的参数对象的方法
+d = new D();
+d.doSomething();  //它创建的任何对象的方法
+}
+}
+
+        
+
+不好：违反迪米特法则，类知道的东西太多，则下面任何一个方法的改变，都会影响到这个类，说明耦合太多。
+
+         final String outputDir = ctxt.getOptions().getScratchDir().getAbsolutePath();
+
+ 
+
+原则11       类的设计应遵循“Tell，Don’t ask”原则
+
+说明：你应该尽量告诉对象你希望它们去做的事情；而不要询问它们的状态之后做出决定，最后才告诉它们做什么事情
+
+示例：
+
+         违反“Tell，Don’t ask”原则，询问对象状态再做判断
+
+         ...
+if (person.getAddress().getCountry().equals(”Australia”))
+...
+
+ 
+
+         遵循“Tell，Don’t Ask”原则的代码，告诉对象去判断
+
+         ...
+if (person.livesIn(”Australia”))
+...
+
+ 
+
+原则12       类设计时优选组合而不是继承
+
+说明：只有当子类真正是超类的子类型时，即两者确实是“IS-A”关系时，才适合用继承。不宜用继承来实现复用，会造成子类数量过多，而采用组合来实现复用，则能实现动态组合，更加灵活；
+
+示例：
+
+继承会造成类爆炸：
+
+
+
+ 
+
+采用组合则更加灵活：
+
+
+
+ 
+
+ 
+
+规则24       除提供给外部使用的全局常量外，应尽量避免类成员变量被外部直接访问
+
+说明：将变量设置为私有（private）的理由是：我们不想其他人依赖这个变量，依赖类内部的实现细节。这样，当内部实现需要变更时，影响面就比较小，变更的成本就比较低。
+
+ 
+
+规则25       避免在无关的变量或无关的概念之间重用名字，避免隐藏（hide）、遮蔽（shadow）和遮掩（obscure）
+
+说明：在声明子类的字段、方法或嵌套类型时，除了覆写（override）、重载（overload）之外，要尽量避免重名导致的隐藏（hide）、遮蔽（shadow）和遮掩（obscure）。
+
+我们先来了解这些名字重用的术语列表。
+
+ 
+
+覆写（override）——子类与父类间
+
+一个实例方法可以覆写（override）在其超类中可访问到（非private）的具有相同签名的实例方法（非static），从而使能了动态分派（dynamic dispatch）；换句话说，VM 将基于实例的运行期类型来选择要调用的覆写方法。
+
+class Base
+{
+public void f() {}
+}
+class Derived extends Base
+{
+@Override
+public void f() {} // overrides Base.f()
+}
+
+ 
+
+重载（overload）——类内部
+
+在某个类中的方法可以重载（overload）另一个方法，只要它们具有相同的名字和不同的签
+
+名。由调用所指定的重载方法是在编译期选定的
+
+         class CircuitBreaker
+{
+public void f(int i) {} // int overloading
+public void f(String s) {} // String overloading
+}
+
+ 
+
+隐藏（hide）——子类与父类间
+
+一个属性、静态方法或内部类可以分别隐藏（hide）在其超类中可访问到的具有相同名字（对方法而言就是相同的方法签名）的所有属性、方法或内部类。上述成员被隐藏后，将阻止其被继承：
+
+     class Swan
+{
+public static void fly()
+{
+System.out.println("swan can fly ...");
+}
+}
+class UglyDuck extends Swan
+{
+public static void fly()  //hide Swan.fly
+{
+System.out.println("ugly duck can't fly ...");
+}
+}
+public class TestFly
+{
+public static void main(String[] args)
+{
+Swan swan = new Swan();
+Swan uglyDuck = new UglyDuck();
+swan.fly();     //打印swan can fly ...
+uglyDuck.fly(); //还是打印swan can fly ...，hide让人以为是重载了，其实不是
+}
+}
+
+ 
+
+遮蔽（shadow）——类内部
+
+一个变量、方法或类可以分别遮蔽（shadow）在类内部具有相同名字的变量、方法或类。如果一个实体被遮蔽了，那么就无法用简单名引用到它：
+
+示例：
+
+         方法的局部变量遮蔽了类的静态变量
+
+         class WhoKnows
+{
+static String sentence = "I don't know.";
+public static void main(String[] args)
+{
+String sentence = "I know!"; // 遮蔽了类的静态成员sentence
+System.out.println(sentence); // 打印的是I know！
+}
+}
+
+ 
+
+遮掩（obscure）——类内部
+
+一个变量可以遮掩具有相同名字的一个类，只要它们都在同一个范围内：如果这个名字被用于变量与类都被许可的范围，那么它将引用到变量上。相似地，一个变量或一个类型可
+
+以遮掩一个包。遮掩是唯一一种两个名字位于不同的名字空间的名字重用形式，这些名字空
+
+间包括：变量、包、方法或类型。如果一个类或一个包被遮掩了，那么你不能通过其简单
+
+名引用到它，除非是在这样一个上下文环境中，即语法只允许在其名字空间中出现一种名字。
+
+遵守命名习惯就可以极大地消除产生遮掩的可能性
+
+         public class Obscure
+{
+static String System; // Obscures type java.lang.System
+public static void main(String[] args)
+{
+//Next line won't compile: System refers to static field
+System.out.println("hello, obscure world!");
+}
+}
+
+ 
+
+规则26       不要在父类的构造方法中调用可能被子类覆写的方法
+
+说明：当在父类构造方法中调用可能被子类覆写的方法时，构造方法的表现是不可预知的，很可能会导致异常。而问题出现后，又往往难以快速定位。这个问题是由于在Java中，当子类初始化的时候，会调用父类的构造方法，当构造方法调用了被子类覆写的方法，往往会由于子类的初始化未完成而导致异常。
+
+示例：
+
+   public class SeniorClass
+{
+public SeniorClass()
+{
+toString();  //如果被覆写了，可能会导致异常
+}
+@Override
+public String toString()
+{
+return "IAmSeniorClass";
+}
+}
+public class JuniorClass extends SeniorClass
+{
+private String name;
+public JuniorClass()
+{
+super();  //调用父类的构造方法，导致NullPointerException异常
+name = "JuniorClass";
+}
+@Override
+public String toString()
+{
+return name.toUpperCase();
+}
+}
+     
+
+规则27       覆写equals方法时，应同时覆写hashCode方法
+
+说明：因为Java对象在存放到基于Hash的集合（如HashMap、HashTable等）时，会使用其Hash码进行索引，如果只覆写了equals方法，而没有正确覆写hashCode方法，则会导致效率低下甚至出错；Java对象的hashCode方法有如下约定：
+
+1.   同一次运行中，同一个对象如果equals方法中用到的信息没有改变，多次调用hashCode方法返回值必须相同；
+
+2.   如果两个对象调用equals方法时相等，则这两个对象的hashCode方法，也必须返回相同的值；
+
+3.   如果两个对象调用equals方法时不相等，则这两个对象的hashCode方法，不要求其返回值不同。
+
+ 示例：
+
+         不好：覆写equals的时候，没有同时覆写hashCode方法
+
+         public class Entity
+{
+private String id;
+private String value;
+@Override
+public boolean equals(Object obj)
+{
+if (obj instanceof Entity)
+{
+Entity that = (Entity)obj;
+return StringUtils.equals(this.id, that.id)
+&& StringUtils.equals(this.value, that.value);
+}
+return false;
+}
+}
+
+ 
+
+规则28       子类覆写父类方法时应加上@Override注解
+
+说明：加上@Override注解的好处是，如果覆写时因为疏忽，导致子类方法的参数同父类不一致，编译时会报错，使问题在编译期就被发现。如果父类修改了方法定义造成子类不再覆写父类方法，也能使问题在编译期尽早被发现。
+
+ 
+
+建议12       接口定义中去掉多余的修饰词
+
+说明：在接口定义中，属性已缺省具有public static final修饰词，方法已缺省具有public abstract修饰词。因此在代码中不要再次提供这些修饰词。
+
+ 
+
+建议13       设计时，考虑类的可变性最小化
+
+说明：不可变类是指其实例一旦创建后就不能被修改，如Java平台类库的String、BigInteger和BigDecimal。不可变类比可变类更加易于设计、实现和使用。
+
+要使类成为不可变类，遵循以下5条规则：
+
+1、 不要提供任何会修改类状态的方法；
+
+2、 保证类不会被继承；
+
+3、 使所有值域都为final；
+
+4、 使所有值域都成为私有；
+
+5、 如果类具有指向可变对象的域，则必须确保该类的使用者无法获得指向这些对象的引用。
