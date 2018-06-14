@@ -1,0 +1,229 @@
+
+6      多线程并发
+规则40       多线程访问同一个可变变量，需增加同步机制
+
+说明：根据Java Language Specification中对Java内存模型的定义, JVM中存在一个主内存(Java Heap Memory)，Java中所有变量都储存在主存中，对于所有线程都是共享的。每个线程都有自己的工作内存(Working Memory)，工作内存中保存的是主存中某些变量的拷贝，线程对所有变量的操作都是在工作内存中进行，线程之间无法相互直接访问，变量传递均需要通过主存完成。根据上述内存模型的定义，要在多个线程间安全的同步共享数据就必须使用锁机制，将某线程中更新的数据从其工作内存中刷新至主内存，并确保其他线程从主内存获取此数据更新后的值再使用。
+
+示例：
+
+    不好：下面的代码中，没有对可变数据stopRequested的访问做同步。程序期望在一秒钟后线程能停止。但在用java 1.6的server模式运行此程序（Java –server StopThread）时，程序陷入死循环，不能结束。    public class StopThread
+{
+private static boolean stopRequested;
+public static void main(String[] args) throws InterruptedException
+{
+Thread backgroundThread = new Thread(new Runnable()
+{
+public void run()
+{
+int i = 0;
+while (!stopRequested)
+{
+i++;
+}
+}
+});
+backgroundThread.start();
+TimeUnit.SECONDS.sleep(1);
+stopRequested = true;
+}
+}
+
+ 
+
+    增加了synchronized同步机制后，程序就能正确地在1秒后终止。另一个方案是在变量前增加    volatile关键字。
+
+    public class StopThread
+{
+private static boolean stopRequested;
+private static synchronized void requestStop()
+{
+stopRequested = true;
+}
+private static synchronized boolean isStopRequested()
+{
+return stopRequested;
+}
+public static void main(String[] args) throws InterruptedException
+{
+Thread backgroundThread = new Thread(new Runnable()
+{
+public void run()
+{
+int i = 0;
+while (!isStopRequested())
+{
+i++;
+}
+}
+});
+backgroundThread.start();
+TimeUnit.SECONDS.sleep(1);
+requestStop();
+}
+}
+
+ 
+
+规则41       禁止不加控制地创建新线程
+
+说明：Java虚拟机能够管理的线程数量有限，不加控制的创建新线程可能会导致Java虚拟机崩溃。建议用Java 1.5之后提供的线程池ThreadPoolExecutor来管理线程资源。
+
+ 示例：
+
+         不好
+
+         public void processEntity1(List<Entity> entityList)
+{
+for (Entity entity : entityList)
+{
+new Thread(new EntityProcessor(entity)).start();
+}
+}
+
+        
+
+推荐，由线程池来管理线程资源
+
+       private ThreadPoolExecutor threadPool = ...; // init thread pool
+public void processEntity2(List<Entity> entityList)
+{
+for (Entity entity : entityList)
+{
+threadPool.execute(new EntityProcessor(entity));
+}
+}
+
+ 
+
+规则42       创建新线程时需指定线程名
+
+说明：指定线程名可以给问题定位带来很多方便。日志或者dump中会包含线程的名称，而缺省的线程名Thread-n无法区分出是哪个线程，给问题定位带来不便。
+
+ 
+
+规则43       使用Thread对象的setUncaughtExceptionHandler方法注册Runtime异常的处理者(v1.5+)
+
+说明：Java多线程程序中，所有线程都不允许抛出未捕获的checked exception，也就是说各个线程需要自己把自己的checked exception处理掉。但是无法避免的是unchecked exception，也就是RuntimeException，当抛出异常时子线程会结束，但主线程不会知道，因为主线程通过try catch是无法捕获子线程异常的。Thread对象提供了setUncaughtExceptionHandler方法用来获取线程中产生的异常。而且建议使用Thread.setDefaultUncaughtExceptionHandler，为所有线程设置默认异常捕获方法。
+
+示例：
+
+         public class TestUncaughtException
+{
+public static void main(String[] args)
+{
+TestThread thread = new TestThread();
+thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler()
+{
+public void uncaughtException(Thread t, Throwable e)
+{
+System.out.println(t.getName() + " : " + e.getMessage());
+}
+});
+thread.start();
+}
+public static class TestThread extends Thread
+{
+public TestThread()
+{
+}
+public void run()
+{
+throw new RuntimeException("just a test");
+}
+}
+}
+
+ 
+
+规则44       不要使用Thread.stop方法，因为该方法本质是不安全的，使用它可能会导致数据遭到破坏
+
+说明：参见[Effective Java 2nd Edition, Item 66]
+
+ 
+
+示例：
+
+不好：不安全做法
+
+private Thread blinker;
+public void start()
+{
+blinker = new Thread(this);
+blinker.start();
+}
+public void stop()
+{
+blinker.stop();  // UNSAFE!
+}
+public void run()
+{
+Thread thisThread = Thread.currentThread();
+while (true)
+{
+try
+{
+thisThread.sleep(interval);
+} catch (InterruptedException e)
+{
+...
+}
+repaint();
+}
+}
+
+推荐做法
+
+private volatile Thread blinker;
+public void stop()
+{
+blinker = null;
+}
+public void run()
+{
+Thread thisThread = Thread.currentThread();
+while (blinker == thisThread)
+{
+try
+{
+thisThread.sleep(interval);
+} catch (InterruptedException e)
+{
+...
+}
+repaint();
+}
+}
+
+ 
+
+规则45       不要依赖线程调度器、线程优先级和yield()方法
+
+说明：Java中的线程调度，是基于操作系统以及JVM的实现，在不同的操作系统中，或者不同厂商的JVM（如Sun、IBM、Microsoft等），即使是同一套代码，其多线程的运行也是不一样的。因此，在多线程的程序中，不要依赖于系统的线程调度器来决定程序的逻辑运作，如果程序依赖于线程调度器来达到正确性或者性能要求，会导致不可移植。同理，程序如果依赖JAVA的线程优先级来确保正确性，也是不可移植的； 而Thread.yield()对线程调度器仅仅是个提示，不保证确定的效果，因此代码也不能依赖Thread.yield()方法。更多细节可以参见[Effective Java 2nd Edition, Item 72]。
+
+ 
+
+规则46       采用Java1.5提供新并发工具代替wait和notify（v1.5+）
+
+说明：自从Java1.5发行版本开始，Java平台就提供了更高级的并发工具，它们可以完成以前必须在wait和notify上手写代码来完成的各项工作。java.util.concurrent更高级的并发工具分成三类：Executor Framework、并发集合（Concurrent Collection）以及同步器（Synchronizer）。
+
+更多细节可以参见[Effective Java 2nd Edition, Item 69]。
+
+ 
+
+规则47       使用线程安全集合在多线程间共享可变数据
+
+说明：在多个线程间共享可变的集合要使用线程安全的集合类型。在Java1.5及以上版本中，应首选java.util.concurrent包中提供的集合如ConcurrentHashMap、ConcurrentSkipListSet等。不仅线程安全而且性能更好。
+
+ 
+
+建议18       多线程操作同一个字符串相加，应采用StringBuffer
+
+说明：StringBuffer相对于StringBuilder来说，是线程安全的。
+
+ 
+
+建议19       针对线程安全性，需要进行文档（javadoc）说明
+
+说明：当一个类的实例或者静态方法被并发使用的时候，这个类的行为如何，是该类与其客户端程序建立的约定的重要组成部分。如果你没有在一个类的文档中描述其行为的并发性情况，使用这个类的程序员将不得不做出某些假设。如果这些假设是错误的，这样得到的程序就可能缺少足够的同步，或者过度同步。无论属于这其中的哪种情况，都可能会发生严重的错误。
+
+更多细节可以参见[Effective Java 2nd Edition, Item 70]。
