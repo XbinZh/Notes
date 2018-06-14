@@ -1,0 +1,297 @@
+
+8      性能与资源管理
+8.1      性能
+原则16       谨慎地进行性能优化
+
+说明：优化的弊大于利，特别是不成熟的优化。在优化的过程中，产生的软件可能既不快速，也不正确，而且还不容易修正。不要因为性能而牺牲合理的结构。要努力编写好的程序而不是快的程序。如果好的程序不够快，它的良好结构可以使它得到更加便利的优化。好的程序体现了信息隐藏（information hiding）的原则：只要有可能，它们就会把设计决策集中在单个模块中，因此，可以改变单个决策，而不会影响到系统的其他部分。
+
+这并不意味着，在完成程序之前就可以忽略性能问题。实现上的问题可以通过后期的优化而得到修正。但是，遍布全局并且限制性能的结构缺陷几乎是不可能被改正的，除非重写系统。在系统完成之后再改变设计的某个基本方法，会导致系统的结构很不好，从而难以维护和改进。因此，必须在设计过程中考虑性能问题
+
+ 
+
+规则55       使用System.arraycopy()进行数组复制
+
+说明：在将一个数组对象复制成另外一个数组对象时，不要自己使用循环复制，可以使用JAVA提供的System.arraycopy()功能来复制数据对象，这样做可以避免出错，而且效率会更高。
+
+示例：
+
+         不好
+
+int[] src = { 1, 2, 3, 4, 5 };
+int[] dest = new int[5];
+for (int i = 0; i < 5; i++)
+{
+dest[i] = src[i];
+}
+
+推荐
+
+int[] src = { 1, 2, 3, 4, 5 };
+int[] dest = new int[5];
+System.arraycopy(src, 0, dest, 0, 5);
+
+ 
+
+规则56       使用集合的toArray()方法将集合转为数组（v1.42+）
+
+说明：更好的性能，代码更加简洁
+示例：
+
+ArrayList list = new ArrayList();
+list.add....
+String[] array = list.toArray(new String[0]);
+
+ 
+
+建议30       在Java的IO操作中，尽量使用带缓冲的实现
+
+说明：在Java的IO操作，读写操作都有两种实现，一种是没有实现缓冲的，一种是实现了缓冲的，使用带有缓冲功能的IO操作，可以降低存储介质的访问次数，从而提高数据读写的效率，提供更好的操作性能。因此，建议尽量使用带有缓冲功能的实现来进行IO操作。
+
+对于性能要求更高的实现，可以使用Java NIO
+
+示例：
+
+         不好
+
+	PrintWriter out = null;
+try
+{
+out = new PrintWriter("file.txt");
+for (int i = 0; i < 100; i++)
+{
+out.println("write  content  " + i);
+}
+} finally
+{
+IOUtils.closeQuietly(out);
+}
+
+ 
+
+推荐
+
+PrintWriter out = null;
+try
+{
+//采用带缓冲的实现
+out = new PrintWriter(new BufferedWriter(new FileWriter("file.txt")));
+for (int i = 0; i < 100; i++)
+{
+out.println("write  content  " + i);
+}
+} finally
+{
+IOUtils.closeQuietly(out);
+}
+
+ 
+
+8.2      资源管理
+规则57       避免创建不必要的对象
+
+说明：重用一个已经创建的对象比创建一个新的对象要好得多，除非确实需要重新创建。创建重复不必要的对象会导致资源浪费，严重时可能会导致性能问题。
+
+示例：
+
+不好：
+
+String s = new String("string"); //建立了2个String对象
+Integer i = new Integer(90);
+...
+Integer j = new Integer(90);
+
+推荐：
+
+String s = "string";
+Integer i = Integer.valueOf(90);
+...
+Integer j = Integer.valueOf(90); //在-128~127间，则会重用内存中缓存的对象
+
+ 
+
+规则58       将对象存入HashSet，或作为key存入HashMap(或HashTable)后，必须确保该对象的hashcode值不变，避免因为hashcode值变化导致不能从集合内删除该对象，进而引起内存泄漏的问题
+
+说明：对于Hash集合(HashMap，HashSet等)而言，对象的hashcode至关重要，在hash集合内查找该对象完全依赖此值。如果一个对象存入Hash集合后hashcode随即发生变化，结果就是无法在集合内找到该对象，进而不能删除该对象，最终导致内存泄漏。
+
+示例：
+
+       错误的示例
+
+ public class Email
+{
+public String address;
+public Email(String address)
+{
+this.address = address;
+}
+public int hashCode()
+{
+int result = address.hashCode();
+return result;
+}
+public static void main(String[] args)
+{
+HashSet<Email> set = new HashSet<email>();
+Email email = new Email("huawei.com");
+set.add(email);
+email.address = "silong.com"; //修改地址值，导致hashcode值变化 ......
+System.out.println(set.contains(email)); //false
+set.remove(email); //leak
+}
+}
+
+ 
+
+规则59       执行IO操作时，应该在finally里关闭IO资源
+
+说明：申请的资源不使用时，需要及时释放。而在产生异常时，资源释放常被忽视。因此要求在数据库操作、IO操作等需要显示调用关闭方法如close()释放资源时，必须在try -catch-finally的finally中调用关闭方法。如果有多个IO对象需要close()，需要分别对每个对象的close()方法进行try-catch，防止一个IO对象关闭失败其他IO对象都未关闭。保证产生异常时释放已申请的资源，或使用apache commons的IOUtils.closeQuietly()。JDK1.7有自动资源管理的特性，不需手动关闭。
+
+示例：
+
+         try
+{
+in = new FileInputStream(inputFileName);
+out = new FileOutputStream(outputFileName);
+copy(in, out);
+} finally
+{
+IOUtils.closeQuietly(in);
+IOUtils.closeQuietly(out);
+}
+
+ 
+
+规则60       消除过期的对象引用
+
+说明：过期引用是指永远也不会再被解除的引用。在支持垃圾回收的语言中，内存泄漏是很隐蔽的。如果一个对象引用被无意识地保留起来，那么，垃圾回收机制不仅不会处理这个对象，而且也不会处理被这个对象所引用的所有其他对象。
+
+例如：如下是Stack类的pop方法。被弹出的对象，不会被垃圾回收机制回收，即使使用Stack的程序不再引用被弹出的对象，也不会回收。因为，Stack内部仍维护着对这些对象的过期引用。
+
+示例：
+
+不好，会造成内存泄漏
+
+	public <T> pop()
+{
+if (size == 0)
+{
+throw new EmptyStackException();
+}
+return elements[--size];
+}
+
+         改为如下，则可消除过期引用
+
+	public <T> pop()
+{
+if (size == 0)
+{
+throw new EmptyStackException();
+}
+T result = elements[--size];
+elements[size] = null;
+return result;
+}
+
+9      可移植性
+规则61       不要在代码中硬编码"\n"和"\r"作为换行符号
+
+说明：回车换行符在不同操作系统下是有区别的，如果需要换行，尽量用PrintStream、PrintWriter的println来代替在字符串中使用硬编码换行符。也可以使用System.getProperty("line.separator")获取运行时环境的换行符。
+
+示例：
+
+不好
+
+System.out.print("Hello,world!\n");
+
+推荐
+
+System.out.println("Hello,world!");
+
+ 
+
+建议31       谨慎地使用本地方法
+
+说明：Java中的本地方法，最早用来解决下面三种场景的使用：
+
+1、提供平台特定的能力访问（如Windows平台下的注册表或文件锁）；
+
+2、提供对遗留库或数据的访问（如遗留库使用C/C++实现等情况）；
+
+3、为了提高应用程序部分代码的性能；
+
+但是，随着Java技术的发展，以上问题在新的JDK版本中都已经得到解决，从JDK 1.3开始，已经不再建议使用本地方法；它会导致应用程序与具体的OS平台耦合，会降低程序的通用性，并且因为实现方面的问题，通常会导致应用程序阻塞、死锁、崩溃等不稳定现象；而且，代码的可读性及可维护性也将大大降低，总而言之，在使用本地方法之前请务必三思。
+
+ 
+
+建议32       避免对第三方代码的强依赖或陷入第三方代码细节
+
+说明：程序中无可避免的会使用第三方提供的代码/jar包，而这些第三方的代码/jar包所提供的接口，是我们无法控制的，即使是公司/部门内部提供的接口，因此，当程序中（大量）使用了第三方提供的代码/jar包时，可以使用Adapter模式，封装中间层，以避免第三方的变更对已有程序的影响。例如：公司从今年开始取消iLog，使用自研的netGo替换，而我们在代码中大量使用了iLog对象进行交互，替换过程难免艰难，也容易引入问题，如果当初在代码中能对iLog对象进行封装，在替换时就不会影响逻辑代码。
+
+10  国际化
+规则62       在所有的输入输出环节，指明正确的编码方式，进行正确的字符到字节，或字节到字符的转换
+
+说明：使用java.nio.charset中的类编码解码字符集，见如下示例
+
+// Corrupts data on errors
+public static byte[] toCodePage_bad(String charset,
+String string) {
+return string.getBytes(charset);
+}
+// Fails to detect corrupt data
+public static String fromCodePage_bad(String charset,
+byte[] bytes) {
+return new String(bytes, charset);
+}
+// Correct
+public static byte[] toCodePage_good(String charset,String string) {
+Charset cs = Charset.forName(charset);
+CharsetEncoder coder = cs.newEncoder();
+ByteBuffer bytebuf = coder.encode(CharBuffer.wrap(string));
+byte[] bytes = new byte[bytebuf.limit()];
+bytebuf.get(bytes);
+return bytes;
+}
+// Correct
+public static String fromCodePage_good(String charset,byte[] bytes) {
+Charset cs = Charset.forName(charset);
+CharsetDecoder coder = cs.newDecoder();
+CharBuffer charbuf = coder.decode(ByteBuffer.wrap(bytes));
+return charbuf.toString();
+}
+
+ 
+
+规则63       如果输入源或输出目标直接支持，尽可能直接使用Unicode进行输入输出。
+
+说明：例如，Oracle数据库直接支持UTF-8的文本数据。使用UTF-8操作Oracle，可自动兼容所有的语言文字；反之，使用ISO-8859-1或者ASCII去操作Oracle，只能兼容欧美单字节的文字。
+
+ 
+
+规则64       不要依赖平台默认的字符编码方式。
+
+说明：例如，中文Windows下，默认的编码为GBK，英文linux下，默认编码为ISO-8859-1。依赖平台默认值意味着同样的程序在不同的平台上可能产生不同的结果。
+
+ 
+
+规则65       对于使用默认编码方式的第三方代码或者遗留代码，可应用适配器模式，将返回的字符串转换成Unicode内码
+
+说明：例如，我们的数据库错误的使用了ASCII编码存储文本，也就是说从数据库返回的中文字，实际上被“拆”成了两个欧洲字符。但是数据库中已经保存了大量数据，全改成Unicode表示不容易。我们可以在数据访问层做一个适配器，将欧洲字符重新组合，变成真正的Unicode中文。
+
+ 
+
+建议33       字符串大小写转换时，应加上Locale.US
+
+说明：String类的toUpperCase()和toLowerCase()方法，如果不输入参数，则会按当前系统默认的编码模式转换，因此转换结果可能并非如你所预期，如下所示：
+
+示例：
+
+         不好：如果当前环境是土耳其Turkish，那最后输出的结果不是预期的大写I了，而是另外一个字符（İ）
+
+String testString = "i";
+System.out.println(testString.toUpperCase());
+
+推荐：字符串的大小写转换一般都是在26个英文字母，建议显示指定语言为Local.US
+
+String testString = "i";
+System.out.println(testString.toUpperCase(Local.US));
